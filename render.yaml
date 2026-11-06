@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: catalogue-whatsapp
+    runtime: static
+    buildCommand: echo "aucun build"
+    staticPublishPath: .

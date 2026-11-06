@@ -62,7 +62,7 @@ input[type=file]{padding:8px}
 .prev img{width:100%;height:100%;object-fit:cover}
 .err{color:var(--chili);font-weight:500;margin-top:10px}
 .ok{color:var(--green);font-weight:500;margin-top:10px}
-.big{width:100%;aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:var(--bg);display:grid;place-items:center;font-size:4rem;margin-bottom:14px}.big img{width:100%;height:100%;object-fit:cover}.lnk{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:600;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}.desc{white-space:pre-line;margin:12px 0 0}.emo[data-open]{cursor:pointer}
+.sizes{display:flex;flex-wrap:wrap;gap:8px}.add:disabled{background:var(--line);color:var(--mute);cursor:default}.big{width:100%;aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:var(--bg);display:grid;place-items:center;font-size:4rem;margin-bottom:14px}.big img{width:100%;height:100%;object-fit:cover}.lnk{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:600;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}.desc{white-space:pre-line;margin:12px 0 0}.emo[data-open]{cursor:pointer}
 @media (min-width:640px){.grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -122,19 +122,24 @@ function renderGrid(){
   var l=S.produits.filter(function(p){return cat==="Tout"||p.cat===cat});
   $("grid").innerHTML=l.length?l.map(function(p){
     var q=cart[p.id]||0;
-    var ctl=q?'<div class="qty"><button class="b" data-a="-" data-id="'+p.id+'" aria-label="Retirer">−</button><span>'+q+'</span><button class="b" data-a="+" data-id="'+p.id+'" aria-label="Ajouter">+</button></div>':'<button class="add" data-a="+" data-id="'+p.id+'">Ajouter</button>';
+    var ctl=hasSz(p)?'<button class="add" data-open="'+p.id+'">'+(qtyOf(p.id)?"Choisir ("+qtyOf(p.id)+")":"Choisir la taille")+'</button>':q?'<div class="qty"><button class="b" data-a="-" data-id="'+p.id+'" aria-label="Retirer">−</button><span>'+q+'</span><button class="b" data-a="+" data-id="'+p.id+'" aria-label="Ajouter">+</button></div>':'<button class="add" data-a="+" data-id="'+p.id+'">Ajouter</button>';
     return '<article class="item"><div class="emo" data-open="'+p.id+'" aria-hidden="true">'+thumb(p)+'</div><div class="info"><h3><button class="lnk" data-open="'+p.id+'">'+esc(p.nom)+'</button></h3><small>'+esc(p.detail)+'</small><div class="price">'+fmt(p.prix)+'</div></div>'+ctl+'</article>';
   }).join(""):'<p class="note">Aucun produit pour le moment.</p>';
 }
-function totals(){var n=0,s=0;S.produits.forEach(function(p){var q=cart[p.id]||0;n+=q;s+=q*p.prix});return {n:n,s:s}}
+function prod(k){var i=parseInt(k,10);return S.produits.filter(function(p){return p.id===i})[0]}
+function lab(k){var t=String(k).split("::")[1];return t?" ("+t+")":""}
+function qtyOf(id){var n=0;Object.keys(cart).forEach(function(k){if(parseInt(k,10)===id)n+=cart[k]});return n}
+function sizesOf(p){return p&&p.tailles?String(p.tailles).split(",").filter(Boolean):[]}
+function hasSz(p){return sizesOf(p).length>0}
+function totals(){var n=0,s=0;Object.keys(cart).forEach(function(k){var p=prod(k);if(p){n+=cart[k];s+=cart[k]*p.prix}});return {n:n,s:s}}
 function renderBar(){var t=totals();$("open").disabled=!t.n;$("count").textContent=t.n?("Voir ma commande ("+t.n+")"):"Panier vide";$("sum").textContent=t.n?fmt(t.s):""}
 function renderSheet(){
-  var r="";S.produits.forEach(function(p){var q=cart[p.id]||0;if(q)r+='<div class="line"><span>'+q+" × "+esc(p.nom)+'</span><strong>'+fmt(q*p.prix)+'</strong></div>'});
+  var r="";Object.keys(cart).forEach(function(k){var p=prod(k),q=cart[k];if(p&&q)r+='<div class="line"><span>'+q+" × "+esc(p.nom)+esc(lab(k))+'</span><strong>'+fmt(q*p.prix)+'</strong></div>'});
   $("lines").innerHTML=r;$("total").textContent=fmt(totals().s);updateLink();
 }
 function message(){
   var m="Bonjour "+S.boutique+", je souhaite commander :\n\n";
-  S.produits.forEach(function(p){var q=cart[p.id]||0;if(q)m+="• "+q+" × "+p.nom+" = "+fmt(q*p.prix)+"\n"});
+  Object.keys(cart).forEach(function(k){var p=prod(k),q=cart[k];if(p&&q)m+="• "+q+" × "+p.nom+lab(k)+" = "+fmt(q*p.prix)+"\n"});
   m+="\nTotal : "+fmt(totals().s)+"\n";
   if(val("nom"))m+="Nom : "+val("nom")+"\n";if(val("adr"))m+="Livraison : "+val("adr")+"\n";
   return m+"\nMerci !";
@@ -155,20 +160,23 @@ $("close").addEventListener("click",function(){$("sheet").classList.remove("open
 $("sheet").addEventListener("click",function(e){if(e.target===$("sheet"))$("sheet").classList.remove("open")});
 $("nom").addEventListener("input",updateLink);$("adr").addEventListener("input",updateLink);
 
-var PM=null;
-function openProd(id){PM=id;renderPM();$("pm").classList.add("open")}
+var PM=null,PMsize="";
+function openProd(id){PM=id;PMsize="";renderPM();$("pm").classList.add("open")}
 function renderPM(){
   var p=S.produits.filter(function(x){return String(x.id)===String(PM)})[0];if(!p)return;
-  var q=cart[p.id]||0;
+  var sz=sizesOf(p),key=String(p.id)+(sz.length&&PMsize?"::"+PMsize:""),q=cart[key]||0;
+  var chips=sz.length?'<p style="font-weight:500;margin:18px 0 8px">Taille</p><div class="sizes">'+sz.map(function(t){return '<button class="chip" data-sz="'+esc(t)+'" aria-pressed="'+(t===PMsize)+'">'+esc(t)+'</button>'}).join("")+'</div>':'';
+  var act=sz.length&&!PMsize?'<button class="add" style="width:100%;margin-top:18px;padding:14px" disabled>Choisissez une taille</button>'
+    :q?'<div class="qty" style="margin-top:18px"><button class="b" data-a="-" data-key="'+key+'" aria-label="Retirer">−</button><span>'+q+'</span><button class="b" data-a="+" data-key="'+key+'" aria-label="Ajouter">+</button></div>'
+    :'<button class="add" style="width:100%;margin-top:18px;padding:14px" data-a="+" data-key="'+key+'">Ajouter au panier</button>';
   $("pmBody").innerHTML='<div class="big" aria-hidden="true">'+thumb(p)+'</div><h3 style="font-size:1.6rem">'+esc(p.nom)+'</h3><div class="price" style="font-size:1.2rem;margin-top:6px">'+fmt(p.prix)+'</div>'+
-  (p.detail?'<p class="note" style="margin:6px 0 0">'+esc(p.detail)+'</p>':'')+(p.description?'<p class="desc">'+esc(p.description)+'</p>':'')+
-  (q?'<div class="qty" style="margin-top:18px"><button class="b" data-a="-" data-id="'+p.id+'" aria-label="Retirer">−</button><span>'+q+'</span><button class="b" data-a="+" data-id="'+p.id+'" aria-label="Ajouter">+</button></div>'
-    :'<button class="add" style="width:100%;margin-top:18px;padding:14px" data-a="+" data-id="'+p.id+'">Ajouter au panier</button>');
+  (p.detail?'<p class="note" style="margin:6px 0 0">'+esc(p.detail)+'</p>':'')+(p.description?'<p class="desc">'+esc(p.description)+'</p>':'')+chips+act;
 }
 $("pm").addEventListener("click",function(e){
   if(e.target===$("pm")||e.target.id==="pmClose"){$("pm").classList.remove("open");return}
-  var a=e.target.getAttribute("data-a"),id=e.target.getAttribute("data-id");if(!a)return;
-  cart[id]=Math.max(0,(cart[id]||0)+(a==="+"?1:-1));if(!cart[id])delete cart[id];
+  var z=e.target.getAttribute("data-sz");if(z){PMsize=z;renderPM();return}
+  var a=e.target.getAttribute("data-a"),k=e.target.getAttribute("data-key");if(!a||!k)return;
+  cart[k]=Math.max(0,(cart[k]||0)+(a==="+"?1:-1));if(!cart[k])delete cart[k];
   renderPM();renderGrid();renderBar();
 });
 
@@ -207,6 +215,9 @@ function createView(){
   '<p class="note">Avec l’indicatif du pays, sans + ni espaces.</p>'+field("c-slug","Votre lien","",'required pattern="[a-z0-9-]{3,40}"')+
   '<p class="note" id="c-url"></p>'+msgs()+'<div class="row"><button class="btn" type="submit">Créer mon catalogue</button></div></form>';
 }
+var SZV=["S","M","L","XL","XXL"],SZC=["39","40","41","42","43","44","45"],SZ=SZV.concat(SZC);
+function tzRow(l,a){return '<p style="font-weight:500;margin:10px 0 6px">'+l+'</p><div class="sizes">'+a.map(function(t){return '<button type="button" class="chip" data-act="tz" data-v="'+t+'" aria-pressed="'+(D.tz.indexOf(t)>=0)+'">'+t+'</button>'}).join("")+'</div>'}
+function tzPicker(){return '<label>Tailles disponibles</label><p class="note" style="margin:0">Laissez tout vide si le produit n’a pas de taille.</p>'+tzRow("Vêtements",SZV)+tzRow("Chaussures",SZC)}
 function dash(){
   var url=location.origin+location.pathname+"?b="+D.cat.slug;
   var h='<div class="top"><h1>'+esc(D.cat.boutique)+'</h1><div><a href="?b='+esc(D.cat.slug)+'" target="_blank" rel="noopener">Voir mon catalogue</a> · <button class="x" style="font-size:1rem;text-decoration:underline" data-act="logout">Se déconnecter</button></div></div>'+
@@ -218,7 +229,7 @@ function dash(){
     var p=D.edit===0?{nom:"",detail:"",prix:"",cat:"",photo_url:""}:D.prods.filter(function(x){return x.id===D.edit})[0];
     var ph=D.photo===undefined?p.photo_url:D.photo;
     var cl=D.prods.map(function(x){return x.cat}).filter(function(c,i,a){return a.indexOf(c)===i}).map(function(c){return '<option value="'+esc(c)+'">'}).join("");
-    h+='<div class="box"><h3 style="margin-top:14px">'+(D.edit===0?"Nouveau produit":"Modifier le produit")+'</h3>'+field("f-nom","Nom du produit",p.nom)+field("f-det","Détail court (poids, quantité…)",p.detail)+'<label for="f-desc">Description complète (optionnelle)</label><textarea id="f-desc" rows="4" placeholder="Origine, composition, conseils…">'+esc(p.description||"")+'</textarea>'+
+    h+='<div class="box"><h3 style="margin-top:14px">'+(D.edit===0?"Nouveau produit":"Modifier le produit")+'</h3>'+field("f-nom","Nom du produit",p.nom)+field("f-det","Détail court (poids, quantité…)",p.detail)+'<label for="f-desc">Description complète (optionnelle)</label><textarea id="f-desc" rows="4" placeholder="Origine, composition, conseils…">'+esc(p.description||"")+'</textarea>'+tzPicker()+
     field("f-prix","Prix en FCFA",p.prix,'type="number" inputmode="numeric" min="0"')+field("f-cat","Catégorie",p.cat,'list="catlist" placeholder="Ex : Viandes"')+'<datalist id="catlist">'+cl+'</datalist>'+
     '<label for="photo">Photo</label><div class="prev" id="prev">'+(ph?'<img src="'+esc(ph)+'" alt="Aperçu">':"🛍️")+'</div><input id="photo" type="file" accept="image/*">'+
     (ph?'<div class="row"><button class="btn alt" data-act="rmphoto">Retirer la photo</button></div>':'')+
@@ -273,12 +284,13 @@ $("espace").addEventListener("change",async function(e){
 $("espace").addEventListener("click",async function(e){
   var act=e.target.getAttribute("data-act");if(!act)return;
   var id=parseInt(e.target.getAttribute("data-id"),10);D.msg="";D.err="";
+  if(act==="tz"){var v=e.target.getAttribute("data-v"),i=D.tz.indexOf(v);if(i<0)D.tz.push(v);else D.tz.splice(i,1);e.target.setAttribute("aria-pressed",String(i<0));return}
   if(act==="mode"){D.mode=D.mode==="login"?"signup":"login";return authView()}
   if(act==="logout"){await sb.auth.signOut();D.edit=null;return renderEspace()}
   if(act==="copy"){try{await navigator.clipboard.writeText($("lien").value);flash(true,"Lien copié.")}catch(x){$("lien").select();flash(true,"Sélectionné : copiez-le.")}return dash()}
   if(act==="tab"){D.tab=e.target.getAttribute("data-v");D.edit=null}
-  else if(act==="new"){D.edit=0;D.photo=undefined}
-  else if(act==="edit"){D.edit=id;D.photo=undefined}
+  else if(act==="new"){D.edit=0;D.photo=undefined;D.tz=[]}
+  else if(act==="edit"){D.edit=id;D.photo=undefined;D.tz=sizesOf(D.prods.filter(function(x){return x.id===id})[0])}
   else if(act==="cancel"){D.edit=null}
   else if(act==="rmphoto"){D.photo=""}
   else if(act==="del1"){D.del=id}
@@ -291,7 +303,7 @@ $("espace").addEventListener("click",async function(e){
   }else if(act==="saveProd"){
     var prix=parseInt($("f-prix").value,10);
     if(!val("f-nom")||isNaN(prix)||prix<0){flash(false,"Indiquez un nom et un prix valide.");return dash()}
-    var row={nom:val("f-nom"),detail:val("f-det"),description:val("f-desc"),prix:prix,cat:val("f-cat")||"Divers"};
+    var row={nom:val("f-nom"),detail:val("f-det"),description:val("f-desc"),tailles:D.tz.slice().sort(function(a,b){return SZ.indexOf(a)-SZ.indexOf(b)}).join(","),prix:prix,cat:val("f-cat")||"Divers"};
     if(D.photo!==undefined)row.photo_url=D.photo;
     var q=D.edit===0?await sb.from("produits").insert(Object.assign({catalogue_id:D.cat.id},row)):await sb.from("produits").update(row).eq("id",D.edit);
     if(q.error){flash(false,q.error.message);return dash()}

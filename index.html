@@ -106,6 +106,16 @@ header .brand{gap:10px}
 header .brand .logo{width:40px;height:40px}
 header .brand h1{font-size:1.3rem;line-height:1.15;letter-spacing:-.01em;min-width:0;overflow-wrap:anywhere}
 header .badge{margin:10px 0 0}
+.menubar{position:relative;display:flex;justify-content:flex-end;margin-bottom:8px}
+.menubtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);border-radius:99px;padding:7px 14px;font:inherit;font-weight:600;font-size:.9rem}
+.menulist{position:absolute;right:0;top:calc(100% + 6px);z-index:8;min-width:220px;max-height:60vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px}
+.menulist button{display:flex;justify-content:space-between;gap:12px;width:100%;background:none;border:0;color:var(--ink);font:inherit;padding:11px 12px;border-radius:10px;text-align:left}
+.menulist button[aria-current="true"]{background:var(--green);color:var(--onGreen);font-weight:700}
+.menulist button span{opacity:.7;font-size:.85rem}
+.topline{display:flex;align-items:center;gap:10px}
+.topline .brand{flex:0 1 auto;min-width:0}
+.topline .search{flex:1;min-width:0;margin:0}
+.topline .search input{padding:10px 14px;font-size:.95rem}
 .credit{text-align:center;font-style:italic;color:var(--mute);font-size:.85rem;margin:24px 0 8px}
 </style>
 </head>
@@ -116,7 +126,9 @@ header .badge{margin:10px 0 0}
 <div class="row"><a class="btn" href="#espace">Créer mon espace</a></div></div>
 </div>
 <div id="shop" hidden>
-<header><div class="search"><input id="q" type="search" placeholder="Rechercher un article…" aria-label="Rechercher un article" autocomplete="off" enterkeyhint="search"></div><div class="brand"><img id="logo" class="logo" alt="" hidden><h1 id="nomShop"></h1></div><span class="badge" id="accroche"></span>
+<header><div class="menubar"><button type="button" id="menuBtn" class="menubtn" aria-haspopup="true" aria-expanded="false" aria-controls="menuList">☰ Catégories</button><div id="menuList" class="menulist" role="menu" hidden></div></div>
+<div class="topline"><div class="brand"><img id="logo" class="logo" alt="" hidden><h1 id="nomShop"></h1></div><div class="search"><input id="q" type="search" placeholder="Rechercher…" aria-label="Rechercher un article" autocomplete="off" enterkeyhint="search"></div></div>
+<span class="badge" id="accroche"></span>
 <div id="banner" class="banner" hidden></div>
 <div id="flash" class="flash" role="status" hidden><b>FLASH INFO</b><div class="trk"><span id="flashTxt"></span></div></div>
 <p>Choisissez vos produits, validez : votre commande arrive directement sur notre WhatsApp.</p></header>
@@ -181,7 +193,7 @@ function renderShop(){
   document.title=S.boutique+" – Commandez sur WhatsApp";
   if(cats().indexOf(cat)<0)cat="Tout";
   $("chips").innerHTML=["Tout"].concat(cats()).map(function(c){return '<button class="chip" aria-pressed="'+(c===cat)+'" data-c="'+esc(c)+'">'+esc(c)+'</button>'}).join("");
-  renderGrid();renderBar();
+  renderMenu();renderGrid();renderBar();
 }
 var qs="";
 function norm(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
@@ -218,6 +230,16 @@ function updateLink(){
   a.href=ok?"https://wa.me/"+String(S.whatsapp).replace(/\D/g,"")+"?text="+encodeURIComponent(message()):"#";
 }
 $("chips").addEventListener("click",function(e){var c=e.target.getAttribute("data-c");if(c){cat=c;renderShop()}});
+function renderMenu(){
+  var n={};S.produits.forEach(function(p){n[p.cat]=(n[p.cat]||0)+1});
+  $("menuList").innerHTML='<button type="button" role="menuitem" data-c="Tout" aria-current="'+(cat==="Tout")+'">Tout <span>'+S.produits.length+'</span></button>'+
+  cats().map(function(c){return '<button type="button" role="menuitem" data-c="'+esc(c)+'" aria-current="'+(c===cat)+'">'+esc(c)+' <span>'+n[c]+'</span></button>'}).join("");
+}
+function setMenu(open){$("menuList").hidden=!open;$("menuBtn").setAttribute("aria-expanded",String(open))}
+$("menuBtn").addEventListener("click",function(){setMenu($("menuList").hidden)});
+$("menuList").addEventListener("click",function(e){var b=e.target.closest("[data-c]");if(!b)return;cat=b.getAttribute("data-c");setMenu(false);renderShop();$("chips").scrollIntoView({block:"start"})});
+document.addEventListener("click",function(e){if(!e.target.closest(".menubar"))setMenu(false)});
+document.addEventListener("keydown",function(e){if(e.key==="Escape")setMenu(false)});
 $("grid").addEventListener("click",function(e){
   var o=e.target.closest("[data-open]");if(o){openProd(o.getAttribute("data-open"));return}
   var a=e.target.getAttribute("data-a"),id=e.target.getAttribute("data-id");if(!a)return;

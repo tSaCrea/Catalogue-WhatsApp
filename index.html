@@ -62,7 +62,13 @@ input[type=file]{padding:8px}
 .prev img{width:100%;height:100%;object-fit:cover}
 .err{color:var(--chili);font-weight:500;margin-top:10px}
 .ok{color:var(--green);font-weight:500;margin-top:10px}
-.banner{display:block;width:calc(100% + 32px);margin:0 -16px;max-height:200px;object-fit:cover}.brand{display:flex;align-items:center;gap:14px}.logo{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--card);border:1px solid var(--line);flex:none}.vid{width:100%;max-height:70vh;border-radius:14px;margin-top:14px;background:#000}.out{font-weight:700;color:var(--chili);padding:6px 10px;border:1.5px solid var(--chili);border-radius:10px;font-size:.85rem;white-space:nowrap}.item.off .emo,.item.off .info{opacity:.55}.sizes{display:flex;flex-wrap:wrap;gap:8px}.add:disabled{background:var(--line);color:var(--mute);cursor:default}.big{width:100%;min-height:120px;border-radius:14px;overflow:hidden;background:var(--bg);display:grid;place-items:center;font-size:4rem;margin-bottom:14px}.big img{width:100%;height:auto;max-height:70vh;object-fit:contain;display:block}.lnk{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:600;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}.desc{white-space:pre-line;margin:12px 0 0}.emo[data-open]{cursor:pointer}
+.banner{display:block;width:100%;margin:14px 0 0;max-height:220px;object-fit:cover;border-radius:14px}
+.flash{display:flex;align-items:stretch;margin-top:12px;background:var(--green);color:var(--onGreen);border-radius:12px;overflow:hidden;font-weight:700}
+.flash b{flex:none;background:rgba(0,0,0,.2);padding:10px 12px;font-size:.78rem;letter-spacing:.05em;display:flex;align-items:center}
+.flash .trk{flex:1;overflow:hidden;white-space:nowrap;padding:10px 0}
+.flash .trk span{display:inline-block;padding-left:100%;animation:defile 18s linear infinite}
+@keyframes defile{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+@media (prefers-reduced-motion:reduce){.flash .trk{white-space:normal;padding:10px 12px}.flash .trk span{animation:none;padding-left:0}}.brand{display:flex;align-items:center;gap:14px}.logo{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--card);border:1px solid var(--line);flex:none}.vid{width:100%;max-height:70vh;border-radius:14px;margin-top:14px;background:#000}.out{font-weight:700;color:var(--chili);padding:6px 10px;border:1.5px solid var(--chili);border-radius:10px;font-size:.85rem;white-space:nowrap}.item.off .emo,.item.off .info{opacity:.55}.sizes{display:flex;flex-wrap:wrap;gap:8px}.add:disabled{background:var(--line);color:var(--mute);cursor:default}.big{width:100%;min-height:120px;border-radius:14px;overflow:hidden;background:var(--bg);display:grid;place-items:center;font-size:4rem;margin-bottom:14px}.big img{width:100%;height:auto;max-height:70vh;object-fit:contain;display:block}.lnk{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:600;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}.desc{white-space:pre-line;margin:12px 0 0}.emo[data-open]{cursor:pointer}
 @media (min-width:640px){.grid{grid-template-columns:1fr 1fr}}
 #grid{grid-template-columns:repeat(2,1fr);gap:12px}
 #grid .item{flex-direction:column;align-items:stretch;gap:0;padding:0;overflow:hidden}
@@ -82,7 +88,10 @@ input[type=file]{padding:8px}
 <div class="row"><a class="btn" href="#espace">Créer mon espace</a></div></div>
 </div>
 <div id="shop" hidden>
-<img id="banner" class="banner" alt="" hidden>\n<header><span class="badge" id="accroche"></span><div class="brand"><img id="logo" class="logo" alt="" hidden><h1 id="nomShop"></h1></div><p>Choisissez vos produits, validez : votre commande arrive directement sur notre WhatsApp.</p></header>
+<header><span class="badge" id="accroche"></span><div class="brand"><img id="logo" class="logo" alt="" hidden><h1 id="nomShop"></h1></div>
+<img id="banner" class="banner" alt="" hidden>
+<div id="flash" class="flash" role="status" hidden><b>FLASH INFO</b><div class="trk"><span id="flashTxt"></span></div></div>
+<p>Choisissez vos produits, validez : votre commande arrive directement sur notre WhatsApp.</p></header>
 <div class="chips" id="chips" role="group" aria-label="Catégories"></div>
 <main class="grid" id="grid"></main>
 <p class="foot"><a href="#espace">Espace commerçant</a></p>
@@ -129,6 +138,7 @@ function applyBrand(){
 }
 function renderShop(){
   $("nomShop").textContent=S.boutique;$("accroche").textContent=S.accroche||"";$("accroche").hidden=!S.accroche;applyBrand();
+  var fi=S.flash_info||"";$("flash").hidden=!fi;$("flashTxt").textContent=fi;$("flashTxt").style.animationDuration=Math.max(10,fi.length*0.25)+"s";
   document.title=S.boutique+" – Commandez sur WhatsApp";
   if(cats().indexOf(cat)<0)cat="Tout";
   $("chips").innerHTML=["Tout"].concat(cats()).map(function(c){return '<button class="chip" aria-pressed="'+(c===cat)+'" data-c="'+esc(c)+'">'+esc(c)+'</button>'}).join("");
@@ -199,7 +209,7 @@ $("pm").addEventListener("click",function(e){
 });
 
 async function loadShop(slug){
-  var c=await sb.from("catalogues").select("id,boutique,whatsapp,accroche,couleur,logo_url,banniere_url").eq("slug",slug).maybeSingle();
+  var c=await sb.from("catalogues").select("id,boutique,whatsapp,accroche,flash_info,couleur,logo_url,banniere_url").eq("slug",slug).maybeSingle();
   if(!c.data){return info("Ce catalogue n’existe pas.")}
   var p=await sb.from("produits").select("*").eq("catalogue_id",c.data.id).order("id");
   S=c.data;S.produits=p.data||[];cart={};$("shop").hidden=false;$("cartbar").hidden=false;renderShop();
@@ -276,7 +286,7 @@ function dash(){
   '<div class="box"><label for="lien">Lien à envoyer à vos clients</label><input id="lien" readonly value="'+esc(url)+'"><div class="row"><button class="btn alt" data-act="copy">Copier le lien</button></div></div>'+
   '<div class="chips" style="margin-top:12px" role="group" aria-label="Sections"><button class="chip" aria-pressed="'+(D.tab==="produits")+'" data-act="tab" data-v="produits">Produits</button><button class="chip" aria-pressed="'+(D.tab==="params")+'" data-act="tab" data-v="params">Nom et WhatsApp</button></div>'+msgs();
   if(D.tab==="params"){
-    h+='<div class="box">'+field("s-nom","Nom du catalogue",D.cat.boutique)+field("s-wa","Numéro WhatsApp qui reçoit les commandes",D.cat.whatsapp,'inputmode="numeric"')+field("s-acc","Message d’accroche (optionnel)",D.cat.accroche||"")+brandBox()+'<div class="row"><button class="btn" data-act="saveParams">Enregistrer</button></div></div>';
+    h+='<div class="box">'+field("s-nom","Nom du catalogue",D.cat.boutique)+field("s-wa","Numéro WhatsApp qui reçoit les commandes",D.cat.whatsapp,'inputmode="numeric"')+field("s-acc","Message d’accroche (optionnel)",D.cat.accroche||"")+field("s-flash","Flash info défilant (optionnel, 200 caractères max)",D.cat.flash_info||"",'maxlength="200" placeholder="Ex : Promo -10 % ce week-end · Livraison gratuite dès 20 000 FCFA"')+brandBox()+'<div class="row"><button class="btn" data-act="saveParams">Enregistrer</button></div></div>';
   }else if(D.edit!==null){
     var p=D.edit===0?{nom:"",detail:"",prix:"",cat:"",photo_url:""}:D.prods.filter(function(x){return x.id===D.edit})[0];
     var ph=D.photo===undefined?p.photo_url:D.photo;
@@ -359,7 +369,7 @@ $("espace").addEventListener("click",async function(e){
   else if(act==="saveParams"){
     var wa=val("s-wa").replace(/\D/g,"");
     if(!val("s-nom")||wa.length<8){flash(false,"Vérifiez le nom et le numéro WhatsApp.");return dash()}
-    var u=await sb.from("catalogues").update({boutique:val("s-nom"),whatsapp:wa,accroche:val("s-acc"),couleur:$("s-col").value,logo_url:D.logo!==undefined?D.logo:D.cat.logo_url,banniere_url:D.banniere!==undefined?D.banniere:D.cat.banniere_url}).eq("id",D.cat.id);
+    var u=await sb.from("catalogues").update({boutique:val("s-nom"),whatsapp:wa,accroche:val("s-acc"),flash_info:val("s-flash"),couleur:$("s-col").value,logo_url:D.logo!==undefined?D.logo:D.cat.logo_url,banniere_url:D.banniere!==undefined?D.banniere:D.cat.banniere_url}).eq("id",D.cat.id);
     D.logo=undefined;D.banniere=undefined;D.couleur=undefined;flash(!u.error,u.error?u.error.message:"Réglages enregistrés. Votre catalogue est à jour.");return renderEspace();
   }else if(act==="saveProd"){
     var prix=parseInt($("f-prix").value,10);

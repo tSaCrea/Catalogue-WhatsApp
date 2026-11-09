@@ -116,6 +116,11 @@ header .badge{margin:10px 0 0}
 .topline .brand{flex:0 1 auto;min-width:0}
 .topline .search{flex:1;min-width:0;margin:0}
 .topline .search input{padding:10px 14px;font-size:.95rem}
+.shopname{display:block;color:var(--mute);font-size:.8rem;margin-top:2px}
+.thumbs{display:flex;gap:8px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px}
+.th{flex:none;width:64px;height:64px;padding:0;border:2px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card);cursor:pointer}
+.th[aria-pressed="true"]{border-color:var(--green)}
+.th img{width:100%;height:100%;object-fit:cover;display:block}
 .credit{text-align:center;font-style:italic;color:var(--mute);font-size:.85rem;margin:24px 0 8px}
 </style>
 </head>
@@ -161,6 +166,7 @@ var sb=null;try{sb=supabase.createClient(CFG.url,CFG.key)}catch(e){}
 var $=function(id){return document.getElementById(id)};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function fmt(n){return Number(n).toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g," ")+" FCFA"}
+function pImgs(p){var l=[];if(p.photo_url)l.push(p.photo_url);(p.photos_sup||[]).forEach(function(u){if(u)l.push(u)});return l}
 function thumb(p){return p.photo_url?'<img src="'+esc(p.photo_url)+'" alt="">':"🛍️"}
 function slugify(s){return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40)}
 function val(id){return $(id).value.trim()}
@@ -199,11 +205,11 @@ function renderShop(){
 var qs="";
 function norm(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
 function renderGrid(){
-  var l=S.produits.filter(function(p){return (cat==="Tout"||p.cat===cat)&&(!qs||norm([p.nom,p.detail,p.description,p.cat].join(" ")).indexOf(qs)>=0)});
+  var l=S.produits.filter(function(p){return (cat==="Tout"||p.cat===cat)&&(!qs||norm([p.nom,p.detail,p.description,p.cat,p.boutique_article].join(" ")).indexOf(qs)>=0)});
   $("grid").innerHTML=l.length?l.map(function(p){
     var q=cart[p.id]||0;
     var ctl=p.disponible===false?'<span class="out">Indisponible</span>':hasSz(p)?'<button class="add" data-open="'+p.id+'">'+(qtyOf(p.id)?"Choisir ("+qtyOf(p.id)+")":"Choisir la taille")+'</button>':q?'<div class="qty"><button class="b" data-a="-" data-id="'+p.id+'" aria-label="Retirer">−</button><span>'+q+'</span><button class="b" data-a="+" data-id="'+p.id+'" aria-label="Ajouter">+</button></div>':'<button class="add" data-a="+" data-id="'+p.id+'">Ajouter</button>';
-    return '<article class="item'+(p.disponible===false?' off':'')+'"><div class="emo" data-open="'+p.id+'" aria-hidden="true">'+thumb(p)+'</div><div class="info"><h3><button class="lnk" data-open="'+p.id+'">'+esc(p.nom)+'</button></h3><small>'+esc(p.detail)+'</small><div class="price">'+fmt(p.prix)+'</div></div>'+ctl+'</article>';
+    return '<article class="item'+(p.disponible===false?' off':'')+'"><div class="emo" data-open="'+p.id+'" aria-hidden="true">'+thumb(p)+'</div><div class="info"><h3><button class="lnk" data-open="'+p.id+'">'+esc(p.nom)+'</button></h3><small>'+esc(p.detail)+'</small>'+(p.boutique_article?'<small class="shopname">Boutique : '+esc(p.boutique_article)+'</small>':'')+'<div class="price">'+fmt(p.prix)+'</div></div>'+ctl+'</article>';
   }).join(""):'<p class="note">'+(qs?"Aucun article ne correspond à votre recherche.":"Aucun produit pour le moment.")+'</p>';
 }
 $("q").addEventListener("input",function(){qs=norm($("q").value.trim());renderGrid()});
@@ -251,8 +257,8 @@ $("close").addEventListener("click",function(){$("sheet").classList.remove("open
 $("sheet").addEventListener("click",function(e){if(e.target===$("sheet"))$("sheet").classList.remove("open")});
 $("nom").addEventListener("input",updateLink);$("adr").addEventListener("input",updateLink);
 
-var PM=null,PMsize="";
-function openProd(id){PM=id;PMsize="";renderPM();$("pm").classList.add("open")}
+var PM=null,PMsize="",PMimg=0;
+function openProd(id){PM=id;PMsize="";PMimg=0;renderPM();$("pm").classList.add("open")}
 function renderPM(){
   var p=S.produits.filter(function(x){return String(x.id)===String(PM)})[0];if(!p)return;
   var sz=sizesOf(p),key=String(p.id)+(sz.length&&PMsize?"::"+PMsize:""),q=cart[key]||0;
@@ -262,11 +268,15 @@ function renderPM(){
     :'<button class="add" style="width:100%;margin-top:18px;padding:14px" data-a="+" data-key="'+key+'">Ajouter au panier</button>';
   var vid=p.video_url?'<video class="vid" src="'+esc(p.video_url)+'" controls playsinline preload="metadata"></video>':'';
   if(p.disponible===false){chips='';act='<button class="add" style="width:100%;margin-top:18px;padding:14px" disabled>Indisponible pour le moment</button>'}
-  $("pmBody").innerHTML='<div class="big" aria-hidden="true">'+thumb(p)+'</div><h3 style="font-size:1.6rem">'+esc(p.nom)+'</h3><div class="price" style="font-size:1.2rem;margin-top:6px">'+fmt(p.prix)+'</div>'+
-  (p.detail?'<p class="note" style="margin:6px 0 0">'+esc(p.detail)+'</p>':'')+(p.description?'<p class="desc">'+esc(p.description)+'</p>':'')+vid+chips+act;
+  var imgs=pImgs(p);if(PMimg>=imgs.length)PMimg=0;
+  var thumbs=imgs.length>1?'<div class="thumbs">'+imgs.map(function(u,i){return '<button type="button" class="th" data-img="'+i+'" aria-label="Photo '+(i+1)+'" aria-pressed="'+(i===PMimg)+'"><img src="'+esc(u)+'" alt=""></button>'}).join("")+'</div>':'';
+  var shopn=p.boutique_article?'<p class="note" style="margin:6px 0 0">Boutique : <b>'+esc(p.boutique_article)+'</b></p>':'';
+  $("pmBody").innerHTML='<div class="big" aria-hidden="true">'+(imgs.length?'<img src="'+esc(imgs[PMimg])+'" alt="">':"🛍️")+'</div>'+thumbs+'<h3 style="font-size:1.6rem">'+esc(p.nom)+'</h3><div class="price" style="font-size:1.2rem;margin-top:6px">'+fmt(p.prix)+'</div>'+
+  shopn+(p.detail?'<p class="note" style="margin:6px 0 0">'+esc(p.detail)+'</p>':'')+(p.description?'<p class="desc">'+esc(p.description)+'</p>':'')+vid+chips+act;
 }
 $("pm").addEventListener("click",function(e){
   if(e.target===$("pm")||e.target.id==="pmClose"){$("pm").classList.remove("open");$("pmBody").innerHTML="";return}
+  var im=e.target.closest("[data-img]");if(im){PMimg=parseInt(im.getAttribute("data-img"),10);renderPM();return}
   var z=e.target.getAttribute("data-sz");if(z){PMsize=z;renderPM();return}
   var a=e.target.getAttribute("data-a"),k=e.target.getAttribute("data-key");if(!a||!k)return;
   cart[k]=Math.max(0,(cart[k]||0)+(a==="+"?1:-1));if(!cart[k])delete cart[k];
@@ -339,6 +349,16 @@ function extraBox(p){
   '<label for="video">Vidéo (optionnelle, 25 Mo maximum)</label><div id="vprev">'+(v?'<video src="'+esc(v)+'" controls playsinline style="width:100%;max-height:260px"></video>':'<p class="note" style="margin:0">Aucune vidéo.</p>')+'</div>'+
   '<input id="video" type="file" accept="video/mp4,video/webm,video/quicktime">'+(v?'<div class="row"><button class="btn alt" data-act="rmvideo">Retirer la vidéo</button></div>':'');
 }
+function supListHTML(){return D.sup&&D.sup.length?'<div class="sizes" style="margin-bottom:8px">'+D.sup.map(function(u,i){return '<div style="width:84px"><div class="prev" style="width:84px;height:84px;margin:0 0 6px"><img src="'+esc(u)+'" alt="Photo '+(i+2)+'"></div><button type="button" class="btn alt" style="padding:6px 10px;font-size:.85rem" data-act="rmsup" data-i="'+i+'">Retirer</button></div>'}).join("")+'</div>':'<p class="note" style="margin:0 0 8px">Aucune photo supplémentaire.</p>'}
+async function uploadSup(f){
+  if(D.sup.length>=4){D.err="4 photos supplémentaires maximum.";return dash()}
+  var el=$("supList");el.textContent="Envoi…";
+  var b=await resize(f,900);if(!b){D.err="Cette image n’a pas pu être lue.";return dash()}
+  var path=D.user.id+"/"+Date.now()+"-sup.jpg";
+  var u=await sb.storage.from("photos").upload(path,b,{contentType:"image/jpeg"});
+  if(u.error){D.err="Envoi impossible : "+u.error.message;return dash()}
+  D.sup.push(sb.storage.from("photos").getPublicUrl(path).data.publicUrl);el.innerHTML=supListHTML();$("photo2").value="";
+}
 async function uploadVideo(f){
   if(f.size>25*1024*1024){D.err="Vidéo trop lourde (25 Mo maximum). Raccourcissez-la ou baissez sa qualité.";return dash()}
   $("vprev").textContent="Envoi en cours… ne fermez pas la page.";
@@ -362,10 +382,10 @@ function dash(){
     var ph=D.photo===undefined?p.photo_url:D.photo;
     var cl=D.prods.map(function(x){return x.cat}).filter(function(c,i,a){return a.indexOf(c)===i}).map(function(c){return '<option value="'+esc(c)+'">'}).join("");
     h+='<div class="box"><h3 style="margin-top:14px">'+(D.edit===0?"Nouveau produit":"Modifier le produit")+'</h3>'+field("f-nom","Nom du produit",p.nom)+field("f-det","Détail court (poids, quantité…)",p.detail)+'<label for="f-desc">Description complète (optionnelle)</label><textarea id="f-desc" rows="4" placeholder="Origine, composition, conseils…">'+esc(p.description||"")+'</textarea>'+tzPicker()+extraBox(p)+
-    field("f-prix","Prix en FCFA",p.prix,'type="number" inputmode="numeric" min="0"')+field("f-cat","Catégorie",p.cat,'list="catlist" placeholder="Ex : Viandes"')+'<datalist id="catlist">'+cl+'</datalist>'+
-    '<label for="photo">Photo</label><div class="prev" id="prev">'+(ph?'<img src="'+esc(ph)+'" alt="Aperçu">':"🛍️")+'</div><input id="photo" type="file" accept="image/*">'+
+    field("f-prix","Prix en FCFA",p.prix,'type="number" inputmode="numeric" min="0"')+field("f-cat","Catégorie",p.cat,'list="catlist" placeholder="Ex : Viandes"')+field("f-bout","Boutique qui dispose l’article (optionnel)",p.boutique_article||"",'maxlength="80" placeholder="Ex : '+esc(D.cat.boutique)+'"')+'<datalist id="catlist">'+cl+'</datalist>'+
+    '<label for="photo">Photo principale</label><div class="prev" id="prev">'+(ph?'<img src="'+esc(ph)+'" alt="Aperçu">':"🛍️")+'</div><input id="photo" type="file" accept="image/*">'+
     (ph?'<div class="row"><button class="btn alt" data-act="rmphoto">Retirer la photo</button></div>':'')+
-    '<div class="row"><button class="btn" data-act="saveProd">Enregistrer</button><button class="btn alt" data-act="cancel">Annuler</button></div></div>';
+    '<label for="photo2">Autres photos de l’article (4 maximum)</label><div id="supList">'+supListHTML()+'</div><input id="photo2" type="file" accept="image/*">'+'<div class="row"><button class="btn" data-act="saveProd">Enregistrer</button><button class="btn alt" data-act="cancel">Annuler</button></div></div>';
   }else{
     h+='<div class="row" style="margin-bottom:12px"><button class="btn" data-act="new">Ajouter un produit</button></div><div class="grid">'+
     D.prods.map(function(p){return '<article class="item"><div class="emo" aria-hidden="true">'+thumb(p)+'</div><div class="info"><h3>'+esc(p.nom)+'</h3><small>'+esc(p.cat)+(p.disponible===false?" · En rupture":"")+'</small><div class="price">'+fmt(p.prix)+'</div></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn alt" data-act="edit" data-id="'+p.id+'">Modifier</button><button class="btn alt" data-act="stock" data-id="'+p.id+'">'+(p.disponible===false?"Remettre en stock":"En rupture")+'</button>'+
@@ -408,6 +428,7 @@ $("espace").addEventListener("change",async function(e){
   if((e.target.id==="s-logo"||e.target.id==="s-ban")&&e.target.files[0]){return uploadBrand(e.target.id==="s-logo"?"logo":"banniere",e.target.files[0])}
   if(e.target.id==="f-dispo"){D.dispo=e.target.checked;return}
   if(e.target.id==="video"&&e.target.files[0]){return uploadVideo(e.target.files[0])}
+  if(e.target.id==="photo2"&&e.target.files[0])return uploadSup(e.target.files[0]);
   if(e.target.id!=="photo"||!e.target.files[0])return;
   $("prev").textContent="Envoi…";
   var b=await resize(e.target.files[0]);if(!b){D.err="Cette image n’a pas pu être lue.";return dash()}
@@ -426,10 +447,11 @@ $("espace").addEventListener("click",async function(e){
   if(act==="logout"){await sb.auth.signOut();D.edit=null;return renderEspace()}
   if(act==="copy"){try{await navigator.clipboard.writeText($("lien").value);flash(true,"Lien copié.")}catch(x){$("lien").select();flash(true,"Sélectionné : copiez-le.")}return dash()}
   if(act==="tab"){D.tab=e.target.getAttribute("data-v");D.edit=null}
-  else if(act==="new"){D.edit=0;D.photo=undefined;D.tz=[];D.dispo=true;D.video=undefined}
-  else if(act==="edit"){D.edit=id;D.photo=undefined;D.tz=sizesOf(D.prods.filter(function(x){return x.id===id})[0]);D.dispo=D.prods.filter(function(x){return x.id===id})[0].disponible!==false;D.video=undefined}
+  else if(act==="new"){D.edit=0;D.photo=undefined;D.tz=[];D.dispo=true;D.video=undefined;D.sup=[]}
+  else if(act==="edit"){D.edit=id;D.photo=undefined;D.tz=sizesOf(D.prods.filter(function(x){return x.id===id})[0]);D.dispo=D.prods.filter(function(x){return x.id===id})[0].disponible!==false;D.video=undefined;D.sup=(D.prods.filter(function(x){return x.id===id})[0].photos_sup||[]).slice()}
   else if(act==="cancel"){D.edit=null}
   else if(act==="rmphoto"){D.photo=""}
+  else if(act==="rmsup"){D.sup.splice(parseInt(e.target.getAttribute("data-i"),10),1);$("supList").innerHTML=supListHTML();return}
   else if(act==="rmvideo"){D.video=""}
   else if(act==="rmlogo"){D.logo=""}
   else if(act==="rmban"){D.bans=curBans();D.bans.splice(parseInt(e.target.getAttribute("data-i"),10),1)}
@@ -444,7 +466,7 @@ $("espace").addEventListener("click",async function(e){
   }else if(act==="saveProd"){
     var prix=parseInt($("f-prix").value,10);
     if(!val("f-nom")||isNaN(prix)||prix<0){flash(false,"Indiquez un nom et un prix valide.");return dash()}
-    var row={nom:val("f-nom"),detail:val("f-det"),description:val("f-desc"),disponible:$("f-dispo")?$("f-dispo").checked:true,tailles:D.tz.slice().sort(function(a,b){return SZ.indexOf(a)-SZ.indexOf(b)}).join(","),prix:prix,cat:val("f-cat")||"Divers"};
+    var row={boutique_article:val("f-bout"),photos_sup:D.sup||[],nom:val("f-nom"),detail:val("f-det"),description:val("f-desc"),disponible:$("f-dispo")?$("f-dispo").checked:true,tailles:D.tz.slice().sort(function(a,b){return SZ.indexOf(a)-SZ.indexOf(b)}).join(","),prix:prix,cat:val("f-cat")||"Divers"};
     if(D.photo!==undefined)row.photo_url=D.photo;if(D.video!==undefined)row.video_url=D.video;
     var q=D.edit===0?await sb.from("produits").insert(Object.assign({catalogue_id:D.cat.id},row)):await sb.from("produits").update(row).eq("id",D.edit);
     if(q.error){flash(false,q.error.message);return dash()}

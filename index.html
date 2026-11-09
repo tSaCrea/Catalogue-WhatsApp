@@ -121,7 +121,14 @@ header .badge{margin:10px 0 0}
 .th{flex:none;width:64px;height:64px;padding:0;border:2px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card);cursor:pointer}
 .th[aria-pressed="true"]{border-color:var(--green)}
 .th img{width:100%;height:100%;object-fit:cover;display:block}
-.credit{text-align:center;font-style:italic;color:var(--mute);font-size:.85rem;margin:24px 0 8px}
+.credit{position:relative;margin:34px 0 10px;padding:26px 16px 20px;text-align:center;font-style:normal;color:var(--mute);font-size:.92rem;background:linear-gradient(180deg,var(--card),var(--bg));border:1px solid var(--line);border-radius:22px;overflow:hidden}
+.credit::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:linear-gradient(90deg,#FF6A00,#1B2430 55%,#FF6A00)}
+.credit .made{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px;font-weight:500;color:var(--ink)}
+.credit .heart{display:inline-block;animation:beat 1.6s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}15%{transform:scale(1.25)}30%{transform:scale(1)}45%{transform:scale(1.18)}60%{transform:scale(1)}}
+.credit img{height:34px;width:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:5px 10px}
+.credit .slogan{margin:12px 0 0;font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
+@media (prefers-reduced-motion:reduce){.credit .heart{animation:none}}
 </style>
 </head>
 <body>
@@ -142,7 +149,7 @@ header .badge{margin:10px 0 0}
 </div>
 <div id="espace" hidden></div>
 <p id="info" class="note" hidden></p>
-<footer class="credit">Développé avec cœur ❤️ par tSaCorporation</footer>
+<footer class="credit"><div class="made"><span>Développé avec cœur <span class="heart" aria-hidden="true">❤️</span> par</span><img src="tsacorp-logo.png" alt="tSaCorporation" width="153" height="38"></div><p class="slogan">Transformez vos idées en réalité digitale</p></footer>
 </div>
 
 <div class="bar" id="cartbar" hidden><button id="open" disabled><span id="count">Panier vide</span><span id="sum"></span></button></div>

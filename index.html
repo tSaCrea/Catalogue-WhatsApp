@@ -138,6 +138,26 @@ header .badge{margin:10px 0 0}
 .credit img{height:34px;width:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:5px 10px}
 .credit .slogan{margin:12px 0 0;font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
 @media (prefers-reduced-motion:reduce){.credit .heart{animation:none}}
+/* Page d'un article + icône panier */
+body.lock{overflow:hidden}
+.cartbtn{position:relative;display:flex;align-items:center;justify-content:center;flex:none;padding:0 12px}
+.cbadge{position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:var(--chili);color:#fff;font-size:.75rem;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center}
+.cbadge[hidden]{display:none}
+.pg{position:fixed;inset:0;z-index:9;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.pgwrap{max-width:1000px;margin:0 auto;padding:0 16px calc(36px + env(safe-area-inset-bottom,0px))}
+.pg-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:12px 0;background:var(--bg)}
+.pg-top .sp{flex:1}
+.pg-top .menubtn{display:flex;align-items:center;gap:6px}
+.pg-info h2{font-size:1.7rem;margin:4px 0 0;overflow-wrap:anywhere}
+.pg-info .price{font-size:1.4rem;margin-top:6px}
+.lbl{font-weight:500;margin:18px 0 8px}
+.addbig{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:18px;padding:14px;font-size:1.05rem}
+.addqty{margin-top:18px;justify-content:center;gap:18px}.addqty .b{width:44px;height:44px}.addqty span{font-size:1.1rem}
+.sharebox{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}
+.sharemsg{color:var(--green);font-weight:600;font-size:.9rem;min-width:0}
+.linkin{width:100%;font-size:.85rem;padding:8px 10px}
+@media (min-width:900px){.pg-main{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:32px;align-items:start}.pg-gallery{position:sticky;top:76px}}
+@media (max-width:419px){.topline{flex-wrap:wrap}.topline .brand{flex:1 1 0}.topline .search{order:3;flex:1 0 100%}}
 /* Grands écrans (ordinateur) : page plus large, plus de colonnes. Le téléphone ne change pas. */
 @media (min-width:900px){
 .wrap{max-width:1180px}
@@ -164,7 +184,7 @@ header .badge{margin:10px 0 0}
 <div class="row"><a class="btn" href="#espace">Créer mon espace</a></div></div>
 </div>
 <div id="shop" hidden>
-<header><div class="topline"><div class="brand"><img id="logo" class="logo" alt="" hidden><h1 id="nomShop"></h1></div><div class="search"><input id="q" type="search" placeholder="Rechercher…" aria-label="Rechercher un article" autocomplete="off" enterkeyhint="search"></div><div class="menubar"><button type="button" id="menuBtn" class="menubtn" aria-label="Catégories" aria-haspopup="true" aria-expanded="false" aria-controls="menuList"><span aria-hidden="true">☰</span><span class="mlabel" aria-hidden="true"> Catégories</span></button><div id="menuList" class="menulist" role="menu" hidden></div></div></div>
+<header><div class="topline"><div class="brand"><img id="logo" class="logo" alt="" hidden><h1 id="nomShop"></h1></div><div class="search"><input id="q" type="search" placeholder="Rechercher…" aria-label="Rechercher un article" autocomplete="off" enterkeyhint="search"></div><div class="menubar"><button type="button" id="menuBtn" class="menubtn" aria-label="Catégories" aria-haspopup="true" aria-expanded="false" aria-controls="menuList"><span aria-hidden="true">☰</span><span class="mlabel" aria-hidden="true"> Catégories</span></button><div id="menuList" class="menulist" role="menu" hidden></div></div><button type="button" id="cartBtn" class="menubtn cartbtn" aria-label="Voir mon panier"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 7H6"/></svg><span class="cc cbadge" hidden>0</span></button></div>
 <span class="badge" id="accroche"></span>
 <div id="banner" class="banner" hidden></div>
 <div id="flash" class="flash" role="status" hidden><b>FLASH INFO</b><div class="trk"><span id="flashTxt"></span></div></div>
@@ -188,10 +208,7 @@ header .badge{margin:10px 0 0}
 <p class="note">Un message déjà rédigé s’ouvre dans WhatsApp. Vous n’avez plus qu’à l’envoyer.</p>
 </div></div>
 
-<div class="sheet" id="pm" role="dialog" aria-modal="true" aria-label="Détail du produit"><div class="panel">
-<div style="display:flex;justify-content:flex-end"><button class="x" id="pmClose" aria-label="Fermer">×</button></div>
-<div id="pmBody"></div>
-</div></div>
+<section class="pg" id="pm" role="dialog" aria-modal="true" aria-label="Page de l’article" hidden><div class="pgwrap" id="pmBody"></div></section>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
@@ -272,10 +289,10 @@ function qtyOf(id){var n=0;Object.keys(cart).forEach(function(k){if(parseInt(k,1
 function sizesOf(p){return p&&p.tailles?String(p.tailles).split(",").filter(Boolean):[]}
 function hasSz(p){return sizesOf(p).length>0}
 function totals(){var n=0,s=0;Object.keys(cart).forEach(function(k){var p=prod(k);if(p){n+=cart[k];s+=cart[k]*p.prix}});return {n:n,s:s}}
-function renderBar(){var t=totals();$("open").disabled=!t.n;$("count").textContent=t.n?("Voir ma commande ("+t.n+")"):"Panier vide";$("sum").textContent=t.n?fmt(t.s):""}
+function renderBar(){var t=totals();$("open").disabled=!t.n;$("count").textContent=t.n?("Voir ma commande ("+t.n+")"):"Panier vide";$("sum").textContent=t.n?fmt(t.s):"";updBadges()}
 function renderSheet(){
   var r="";Object.keys(cart).forEach(function(k){var p=prod(k),q=cart[k];if(p&&q)r+='<div class="line"><span>'+q+" × "+esc(p.nom)+esc(lab(k))+'</span><strong>'+fmt(q*p.prix)+'</strong></div>'});
-  $("lines").innerHTML=r;$("total").textContent=fmt(totals().s);updateLink();
+  $("lines").innerHTML=r||'<p class="note">Votre panier est vide. Ajoutez des articles pour commander.</p>';$("total").textContent=fmt(totals().s);updateLink();
 }
 function message(){
   var m="Bonjour "+S.boutique+", je souhaite commander :\n\n";
@@ -299,49 +316,84 @@ function setMenu(open){$("menuList").hidden=!open;$("menuBtn").setAttribute("ari
 $("menuBtn").addEventListener("click",function(){setMenu($("menuList").hidden)});
 $("menuList").addEventListener("click",function(e){var b=e.target.closest("[data-c]");if(!b)return;cat=b.getAttribute("data-c");setMenu(false);renderShop();$("chips").scrollIntoView({block:"start"})});
 document.addEventListener("click",function(e){if(!e.target.closest(".menubar"))setMenu(false)});
-document.addEventListener("keydown",function(e){if(e.key==="Escape")setMenu(false)});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"){setMenu(false);if(!$("sheet").classList.contains("open")&&!$("pm").hidden)closeProd()}});
+window.addEventListener("popstate",function(){var rt=readRoute();if(S&&rt.b&&rt.p){showProd(rt.p)}else hideProd()});
 $("grid").addEventListener("click",function(e){
   var o=e.target.closest("[data-open]");if(o){openProd(o.getAttribute("data-open"));return}
   var a=e.target.getAttribute("data-a"),id=e.target.getAttribute("data-id");if(!a)return;
   cart[id]=Math.max(0,(cart[id]||0)+(a==="+"?1:-1));if(!cart[id])delete cart[id];renderGrid();renderBar();
 });
-$("open").addEventListener("click",function(){renderSheet();$("sheet").classList.add("open")});
+$("open").addEventListener("click",openCart);
+$("cartBtn").addEventListener("click",openCart);
 $("close").addEventListener("click",function(){$("sheet").classList.remove("open")});
 $("sheet").addEventListener("click",function(e){if(e.target===$("sheet"))$("sheet").classList.remove("open")});
 $("nom").addEventListener("input",updateLink);$("adr").addEventListener("input",updateLink);
 
 var PM=null,PMsize="",PMimg=0;
-function openProd(id){PM=id;PMsize="";PMimg=0;renderPM();$("pm").classList.add("open")}
+/* --- Adresses (liens partageables) : ?b=boutique&p=numéro-article --- */
+function readRoute(){var q=new URLSearchParams(location.search);return {b:q.get("b"),p:q.get("p")}}
+function shopUrl(slug){return location.origin+location.pathname+"?b="+encodeURIComponent(slug)}
+function prodUrl(slug,id){return shopUrl(slug)+"&p="+encodeURIComponent(id)}
+var NAV={
+  push:function(id){try{history.pushState({p:String(id)},"",prodUrl(S.slug,id))}catch(e){}},
+  back:function(){if(history.state&&history.state.p){history.back();return true}return false},
+  reset:function(){try{history.replaceState(null,"",shopUrl(S.slug))}catch(e){}}
+};
+function curProd(){return S&&S.produits.filter(function(x){return String(x.id)===String(PM)})[0]}
+function showProd(id){PM=id;var p=curProd();if(!p)return false;PMsize="";PMimg=0;renderPM();$("pm").hidden=false;document.body.classList.add("lock");$("pm").scrollTop=0;document.title=p.nom+" – "+S.boutique;var b=$("pm").querySelector('[data-pg="back"]');if(b)b.focus();return true}
+function hideProd(){$("pm").hidden=true;$("pmBody").innerHTML="";document.body.classList.remove("lock");if(S)document.title=S.boutique+" – Commandez sur WhatsApp"}
+function openProd(id){if(showProd(id))NAV.push(id)}
+function closeProd(){if(NAV.back())return;hideProd();NAV.reset()}
+function openCart(){renderSheet();$("sheet").classList.add("open")}
+function updBadges(){var n=S?totals().n:0;document.querySelectorAll(".cc").forEach(function(el){el.hidden=!n;el.textContent=n})}
+var CART_SVG='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 7H6"/></svg>';
+var SHARE_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/></svg>';
+function shareText(p){return p.nom+" – "+fmt(p.prix)+" sur "+S.boutique}
+async function shareProd(){
+  var p=curProd();if(!p)return;var url=prodUrl(S.slug,p.id);
+  if(navigator.share){try{await navigator.share({title:p.nom,text:shareText(p),url:url});return}catch(e){if(e&&e.name==="AbortError")return}}
+  window.open("https://wa.me/?text="+encodeURIComponent(shareText(p)+"\n"+url),"_blank","noopener");
+}
+async function copyLink(){
+  var p=curProd();if(!p)return;var url=prodUrl(S.slug,p.id),m=$("shareMsg");if(!m)return;
+  try{await navigator.clipboard.writeText(url);m.textContent="Lien copié ✓";setTimeout(function(){if(m.textContent==="Lien copié ✓")m.textContent=""},2600)}
+  catch(e){m.innerHTML='<input class="linkin" readonly value="'+esc(url)+'" aria-label="Lien de l’article">';var i=m.querySelector("input");i.focus();i.select()}
+}
 function renderPM(){
-  var p=S.produits.filter(function(x){return String(x.id)===String(PM)})[0];if(!p)return;
+  var p=curProd();if(!p)return;
   var sz=sizesOf(p),key=String(p.id)+(sz.length&&PMsize?"::"+PMsize:""),q=cart[key]||0;
-  var chips=sz.length?'<p style="font-weight:500;margin:18px 0 8px">Taille</p><div class="sizes">'+sz.map(function(t){return '<button class="chip" data-sz="'+esc(t)+'" aria-pressed="'+(t===PMsize)+'">'+esc(t)+'</button>'}).join("")+'</div>':'';
-  var act=sz.length&&!PMsize?'<button class="add" style="width:100%;margin-top:18px;padding:14px" disabled>Choisissez une taille</button>'
-    :q?'<div class="qty" style="margin-top:18px"><button class="b" data-a="-" data-key="'+key+'" aria-label="Retirer">−</button><span>'+q+'</span><button class="b" data-a="+" data-key="'+key+'" aria-label="Ajouter">+</button></div>'
-    :'<button class="add" style="width:100%;margin-top:18px;padding:14px" data-a="+" data-key="'+key+'">Ajouter au panier</button>';
+  var chips=sz.length?'<p class="lbl">Taille</p><div class="sizes">'+sz.map(function(t){return '<button type="button" class="chip" data-sz="'+esc(t)+'" aria-pressed="'+(t===PMsize)+'">'+esc(t)+'</button>'}).join("")+'</div>':'';
+  var act=sz.length&&!PMsize?'<button type="button" class="add addbig" disabled>Choisissez une taille</button>'
+    :q?'<div class="qty addqty"><button type="button" class="b" data-a="-" data-key="'+key+'" aria-label="Retirer">−</button><span>'+q+'</span><button type="button" class="b" data-a="+" data-key="'+key+'" aria-label="Ajouter">+</button></div>'
+    :'<button type="button" class="add addbig" data-a="+" data-key="'+key+'">'+CART_SVG+' Ajouter au panier</button>';
+  if(p.disponible===false){chips='';act='<button type="button" class="add addbig" disabled>Indisponible pour le moment</button>'}
   var vid=p.video_url?'<video class="vid" src="'+esc(p.video_url)+'" controls playsinline preload="metadata"></video>':'';
-  if(p.disponible===false){chips='';act='<button class="add" style="width:100%;margin-top:18px;padding:14px" disabled>Indisponible pour le moment</button>'}
   var imgs=pImgs(p);if(PMimg>=imgs.length)PMimg=0;
   var thumbs=imgs.length>1?'<div class="thumbs">'+imgs.map(function(u,i){return '<button type="button" class="th" data-img="'+i+'" aria-label="Photo '+(i+1)+'" aria-pressed="'+(i===PMimg)+'"><img src="'+esc(u)+'" alt=""></button>'}).join("")+'</div>':'';
-  var catn='<p class="note" style="margin:6px 0 0">'+catIcon(p.cat)+' '+esc(p.cat)+'</p>';
-  var shopn=p.boutique_article?'<p class="note" style="margin:6px 0 0">Boutique : <b>'+esc(p.boutique_article)+'</b></p>':'';
-  $("pmBody").innerHTML='<div class="big" aria-hidden="true">'+(imgs.length?'<img src="'+esc(imgs[PMimg])+'" alt="">':catIcon(p.cat))+'</div>'+thumbs+'<h3 style="font-size:1.6rem">'+esc(p.nom)+'</h3><div class="price" style="font-size:1.2rem;margin-top:6px">'+fmt(p.prix)+'</div>'+
-  catn+shopn+(p.detail?'<p class="note" style="margin:6px 0 0">'+esc(p.detail)+'</p>':'')+(p.description?'<p class="desc">'+esc(p.description)+'</p>':'')+vid+chips+act;
+  var top='<div class="pg-top"><button type="button" class="menubtn" data-pg="back" aria-label="Retour au catalogue">← Retour</button><span class="sp"></span><button type="button" class="menubtn" data-pg="share" aria-label="Partager cet article">'+SHARE_SVG+'<span class="mlabel"> Partager</span></button><button type="button" class="menubtn cartbtn" data-pg="cart" aria-label="Voir mon panier">'+CART_SVG+'<span class="cc cbadge" hidden>0</span></button></div>';
+  $("pmBody").innerHTML=top+'<div class="pg-main"><div class="pg-gallery"><div class="big" aria-hidden="true">'+(imgs.length?'<img src="'+esc(imgs[PMimg])+'" alt="">':catIcon(p.cat))+'</div>'+thumbs+'</div>'+
+  '<div class="pg-info"><h2>'+esc(p.nom)+'</h2><div class="price">'+fmt(p.prix)+'</div>'+
+  '<p class="note" style="margin:6px 0 0">'+catIcon(p.cat)+' '+esc(p.cat)+'</p>'+
+  (p.boutique_article?'<p class="note" style="margin:6px 0 0">Boutique : <b>'+esc(p.boutique_article)+'</b></p>':'')+
+  (p.detail?'<p class="note" style="margin:6px 0 0">'+esc(p.detail)+'</p>':'')+(p.description?'<p class="desc">'+esc(p.description)+'</p>':'')+vid+chips+act+
+  '<div class="sharebox"><button type="button" class="btn alt" data-pg="share">Partager cet article</button><button type="button" class="btn alt" data-pg="copy">Copier le lien</button><span class="sharemsg" id="shareMsg" role="status"></span></div></div></div>';
+  updBadges();
 }
 $("pm").addEventListener("click",function(e){
-  if(e.target===$("pm")||e.target.id==="pmClose"){$("pm").classList.remove("open");$("pmBody").innerHTML="";return}
+  var pg=e.target.closest("[data-pg]");
+  if(pg){var w=pg.getAttribute("data-pg");if(w==="back")closeProd();else if(w==="cart")openCart();else if(w==="share")shareProd();else if(w==="copy")copyLink();return}
   var im=e.target.closest("[data-img]");if(im){PMimg=parseInt(im.getAttribute("data-img"),10);renderPM();return}
-  var z=e.target.getAttribute("data-sz");if(z){PMsize=z;renderPM();return}
-  var a=e.target.getAttribute("data-a"),k=e.target.getAttribute("data-key");if(!a||!k)return;
+  var zb=e.target.closest("[data-sz]"),z=zb&&zb.getAttribute("data-sz");if(z){PMsize=z;renderPM();return}
+  var ab=e.target.closest("[data-a]"),a=ab&&ab.getAttribute("data-a"),k=ab&&ab.getAttribute("data-key");if(!a||!k)return;
   cart[k]=Math.max(0,(cart[k]||0)+(a==="+"?1:-1));if(!cart[k])delete cart[k];
   renderPM();renderGrid();renderBar();
 });
 
-async function loadShop(slug){
+async function loadShop(slug,pid){
   var c=await sb.from("catalogues").select("id,boutique,whatsapp,accroche,flash_info,couleur,logo_url,banniere_url,bannieres").eq("slug",slug).maybeSingle();
   if(!c.data){return info("Ce catalogue n’existe pas.")}
   var p=await sb.from("produits").select("*").eq("catalogue_id",c.data.id).order("id");
-  S=c.data;S.produits=p.data||[];cart={};$("q").value="";qs="";$("shop").hidden=false;$("cartbar").hidden=false;renderShop();
+  S=c.data;S.slug=slug;S.produits=p.data||[];cart={};$("q").value="";qs="";$("shop").hidden=false;$("cartbar").hidden=false;renderShop();if(pid)showProd(pid);
 }
 function info(t){$("info").hidden=!t;$("info").textContent=t||""}
 
@@ -531,11 +583,11 @@ $("espace").addEventListener("click",async function(e){
 
 /* ---------- Navigation ---------- */
 async function route(){
-  ["home","shop","espace"].forEach(function(i){$(i).hidden=true});$("pm").classList.remove("open");document.documentElement.style.removeProperty("--green");document.documentElement.style.removeProperty("--onGreen");clearInterval(bnTimer);$("cartbar").hidden=true;info("");
+  ["home","shop","espace"].forEach(function(i){$(i).hidden=true});hideProd();document.documentElement.style.removeProperty("--green");document.documentElement.style.removeProperty("--onGreen");clearInterval(bnTimer);$("cartbar").hidden=true;info("");
   if(!sb||CFG.url.indexOf("VOTRE")===0){return info("Configuration manquante : renseignez l’URL et la clé Supabase dans le fichier config.js.")}
-  var b=new URLSearchParams(location.search).get("b");
+  var rt=readRoute(),b=rt.b;
   if(location.hash==="#espace"){$("espace").hidden=false;return renderEspace()}
-  if(b)return loadShop(b);
+  if(b)return loadShop(b,rt.p);
   $("home").hidden=false;
 }
 window.addEventListener("hashchange",route);route();

@@ -76,13 +76,17 @@ input[type=file]{padding:8px}
 .prev img{width:100%;height:100%;object-fit:cover}
 .err{color:var(--chili);font-weight:500;margin-top:10px}
 .ok{color:var(--green);font-weight:500;margin-top:10px}
-.banner{position:relative;margin:14px 0 0;border-radius:14px;overflow:hidden;aspect-ratio:16/7;background:var(--card)}
-.banner img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .6s}
-.banner img.on{opacity:1}
+/* BANNIÈRE : "width:100%" est indispensable. Avec aspect-ratio + max-height et une largeur automatique,
+   le navigateur rétrécit la largeur pour garder le ratio (bannière coincée à gauche sur ordinateur/tablette). */
+.banner{position:relative;display:block;width:100%;max-width:100%;margin:14px 0 0;border-radius:14px;overflow:hidden;aspect-ratio:16/7;max-height:440px;background:var(--card);isolation:isolate}
+.banner .slide{position:absolute;inset:0;opacity:0;transition:opacity .6s}
+.banner .slide.on{opacity:1}
+.banner .bg{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);max-width:none;object-fit:cover;filter:blur(22px) saturate(1.1);opacity:.85}
+.banner .fg{position:relative;display:block;width:100%;height:100%;object-fit:contain}
 .dots{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:6px}
 .dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55)}
 .dots i.on{background:#fff}
-@media (prefers-reduced-motion:reduce){.banner img{transition:none}}
+@media (prefers-reduced-motion:reduce){.banner .slide{transition:none}}
 .search{margin-bottom:14px}.search input{-webkit-appearance:none;appearance:none;border-radius:99px;padding:12px 18px}
 .flash{display:flex;align-items:stretch;margin-top:12px;background:var(--green);color:var(--onGreen);border-radius:12px;overflow:hidden;font-weight:700}
 .flash b{flex:none;background:rgba(0,0,0,.2);padding:10px 12px;font-size:.78rem;letter-spacing:.05em;display:flex;align-items:center}
@@ -230,11 +234,11 @@ function bannerList(c){return c.bannieres&&c.bannieres.length?c.bannieres:(c.ban
 function renderBanner(){
   var el=$("banner"),l=bannerList(S);clearInterval(bnTimer);el.style.aspectRatio="";
   el.hidden=!l.length;if(!l.length){el.innerHTML="";return}
-  el.innerHTML=l.map(function(u,i){return '<img src="'+esc(u)+'" alt=""'+(i?'':' class="on"')+'>'}).join("")+(l.length>1?'<div class="dots" aria-hidden="true">'+l.map(function(_,i){return '<i'+(i?'':' class="on"')+'></i>'}).join("")+'</div>':'');
+  el.innerHTML=l.map(function(u,i){return '<div class="slide'+(i?'':' on')+'"><img class="bg" src="'+esc(u)+'" alt="" aria-hidden="true"><img class="fg" src="'+esc(u)+'" alt=""></div>'}).join("")+(l.length>1?'<div class="dots" aria-hidden="true">'+l.map(function(_,i){return '<i'+(i?'':' class="on"')+'></i>'}).join("")+'</div>':'');
   var rmin=null;
-  el.querySelectorAll("img").forEach(function(im){function f(){var r=im.naturalWidth/im.naturalHeight;if(r){rmin=rmin===null?r:Math.min(rmin,r);el.style.aspectRatio=String(Math.max(1.2,Math.min(3.5,rmin)))}}if(im.complete)f();else im.addEventListener("load",f)});
+  el.querySelectorAll(".fg").forEach(function(im){function f(){var r=im.naturalWidth/im.naturalHeight;if(r){rmin=rmin===null?r:Math.min(rmin,r);el.style.aspectRatio=String(Math.max(1.2,Math.min(3.5,rmin)))}}if(im.complete)f();else im.addEventListener("load",f)});
   if(l.length>1&&!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)){
-    var k=0;bnTimer=setInterval(function(){var im=el.querySelectorAll("img"),dt=el.querySelectorAll(".dots i");im[k].classList.remove("on");dt[k].classList.remove("on");k=(k+1)%im.length;im[k].classList.add("on");dt[k].classList.add("on")},5000);
+    var k=0;bnTimer=setInterval(function(){var im=el.querySelectorAll(".slide"),dt=el.querySelectorAll(".dots i");im[k].classList.remove("on");dt[k].classList.remove("on");k=(k+1)%im.length;im[k].classList.add("on");dt[k].classList.add("on")},5000);
   }
 }
 function applyBrand(){

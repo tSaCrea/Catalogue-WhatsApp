@@ -138,6 +138,15 @@ header .badge{margin:10px 0 0}
 .credit img{height:34px;width:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:5px 10px}
 .credit .slogan{margin:12px 0 0;font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
 @media (prefers-reduced-motion:reduce){.credit .heart{animation:none}}
+/* Panier : sélection et suppression */
+.line strong{flex:none;white-space:nowrap}
+.sel{display:flex;align-items:center;gap:12px;flex:1;min-width:0;margin:0;font-weight:400;cursor:pointer}
+.sel span{min-width:0;overflow-wrap:anywhere}
+.cksel{width:22px;height:22px;padding:0;flex:none;accent-color:var(--green)}
+.carttools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 0 10px;border-bottom:1px solid var(--line)}
+.carttools .sel{flex:0 1 auto;font-weight:500}
+.carttools .btn{padding:9px 12px;font-size:.9rem}
+.carttools .btn:disabled{opacity:.45;cursor:default}
 /* Page d'un article + icône panier */
 body.lock{overflow:hidden}
 .cartbtn{position:relative;display:flex;align-items:center;justify-content:center;flex:none;padding:0 12px}
@@ -184,7 +193,7 @@ body.lock{overflow:hidden}
 <div class="row"><a class="btn" href="#espace">Créer mon espace</a></div></div>
 </div>
 <div id="shop" hidden>
-<header><div class="topline"><div class="brand"><img id="logo" class="logo" alt="" hidden><h1 id="nomShop"></h1></div><div class="search"><input id="q" type="search" placeholder="Rechercher…" aria-label="Rechercher un article" autocomplete="off" enterkeyhint="search"></div><div class="menubar"><button type="button" id="menuBtn" class="menubtn" aria-label="Catégories" aria-haspopup="true" aria-expanded="false" aria-controls="menuList"><span aria-hidden="true">☰</span><span class="mlabel" aria-hidden="true"> Catégories</span></button><div id="menuList" class="menulist" role="menu" hidden></div></div><button type="button" id="cartBtn" class="menubtn cartbtn" aria-label="Voir mon panier"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 7H6"/></svg><span class="cc cbadge" hidden>0</span></button></div>
+<header><div class="topline"><div class="brand"><img id="logo" class="logo" alt="" hidden><h1 id="nomShop"></h1></div><div class="search"><input id="q" type="search" placeholder="Rechercher…" aria-label="Rechercher un article" autocomplete="off" enterkeyhint="search"></div><button type="button" id="cartBtn" class="menubtn cartbtn" aria-label="Voir mon panier"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 7H6"/></svg><span class="cc cbadge" hidden>0</span></button><div class="menubar"><button type="button" id="menuBtn" class="menubtn" aria-label="Catégories" aria-haspopup="true" aria-expanded="false" aria-controls="menuList"><span aria-hidden="true">☰</span><span class="mlabel" aria-hidden="true"> Catégories</span></button><div id="menuList" class="menulist" role="menu" hidden></div></div></div>
 <span class="badge" id="accroche"></span>
 <div id="banner" class="banner" hidden></div>
 <div id="flash" class="flash" role="status" hidden><b>FLASH INFO</b><div class="trk"><span id="flashTxt"></span></div></div>
@@ -290,10 +299,31 @@ function sizesOf(p){return p&&p.tailles?String(p.tailles).split(",").filter(Bool
 function hasSz(p){return sizesOf(p).length>0}
 function totals(){var n=0,s=0;Object.keys(cart).forEach(function(k){var p=prod(k);if(p){n+=cart[k];s+=cart[k]*p.prix}});return {n:n,s:s}}
 function renderBar(){var t=totals();$("open").disabled=!t.n;$("count").textContent=t.n?("Voir ma commande ("+t.n+")"):"Panier vide";$("sum").textContent=t.n?fmt(t.s):"";updBadges()}
+var SEL={},CARTMSG="";
 function renderSheet(){
-  var r="";Object.keys(cart).forEach(function(k){var p=prod(k),q=cart[k];if(p&&q)r+='<div class="line"><span>'+q+" × "+esc(p.nom)+esc(lab(k))+'</span><strong>'+fmt(q*p.prix)+'</strong></div>'});
-  $("lines").innerHTML=r||'<p class="note">Votre panier est vide. Ajoutez des articles pour commander.</p>';$("total").textContent=fmt(totals().s);updateLink();
+  Object.keys(SEL).forEach(function(k){if(!cart[k])delete SEL[k]});
+  var r="",n=0;Object.keys(cart).forEach(function(k){var p=prod(k),q=cart[k];if(p&&q){n++;r+='<div class="line"><label class="sel"><input type="checkbox" class="cksel" data-k="'+esc(k)+'"><span>'+q+" × "+esc(p.nom)+esc(lab(k))+'</span></label><strong>'+fmt(q*p.prix)+'</strong></div>'}});
+  var tools=n?'<div class="carttools"><label class="sel"><input type="checkbox" class="cksel" id="selAll"><span>Tout sélectionner</span></label><button type="button" class="btn danger" id="delSel" disabled>Supprimer la sélection</button></div>':'';
+  $("lines").innerHTML=(CARTMSG?'<p class="ok" role="status">'+esc(CARTMSG)+'</p>':'')+tools+(r||'<p class="note">Votre panier est vide. Ajoutez des articles pour commander.</p>');
+  $("total").textContent=fmt(totals().s);updateLink();syncSel();
 }
+function syncSel(){
+  var ks=Object.keys(cart),n=ks.filter(function(k){return SEL[k]}).length,b=$("delSel"),a=$("selAll");
+  if(b){b.disabled=!n;b.textContent=n?"Supprimer la sélection ("+n+")":"Supprimer la sélection"}
+  if(a){a.checked=ks.length>0&&n===ks.length;a.indeterminate=n>0&&n<ks.length}
+  document.querySelectorAll("#lines .cksel[data-k]").forEach(function(c){c.checked=!!SEL[c.getAttribute("data-k")]});
+}
+function delSelected(){
+  var ks=Object.keys(SEL).filter(function(k){return cart[k]});if(!ks.length)return;
+  ks.forEach(function(k){delete cart[k]});SEL={};
+  CARTMSG=ks.length+" article"+(ks.length>1?"s":"")+" supprimé"+(ks.length>1?"s":"")+".";
+  renderSheet();renderGrid();renderBar();if(!$("pm").hidden)renderPM();
+}
+$("lines").addEventListener("change",function(e){
+  var t=e.target;if(t.id==="selAll"){Object.keys(cart).forEach(function(k){if(t.checked)SEL[k]=true;else delete SEL[k]});syncSel();return}
+  var k=t.getAttribute&&t.getAttribute("data-k");if(k){if(t.checked)SEL[k]=true;else delete SEL[k];syncSel()}
+});
+$("lines").addEventListener("click",function(e){if(e.target.closest("#delSel"))delSelected()});
 function message(){
   var m="Bonjour "+S.boutique+", je souhaite commander :\n\n";
   Object.keys(cart).forEach(function(k){var p=prod(k),q=cart[k];if(p&&q)m+="• "+q+" × "+p.nom+lab(k)+" = "+fmt(q*p.prix)+"\n"});
@@ -344,15 +374,35 @@ function showProd(id){PM=id;var p=curProd();if(!p)return false;PMsize="";PMimg=0
 function hideProd(){$("pm").hidden=true;$("pmBody").innerHTML="";document.body.classList.remove("lock");if(S)document.title=S.boutique+" – Commandez sur WhatsApp"}
 function openProd(id){if(showProd(id))NAV.push(id)}
 function closeProd(){if(NAV.back())return;hideProd();NAV.reset()}
-function openCart(){renderSheet();$("sheet").classList.add("open")}
+function openCart(){CARTMSG="";renderSheet();$("sheet").classList.add("open")}
 function updBadges(){var n=S?totals().n:0;document.querySelectorAll(".cc").forEach(function(el){el.hidden=!n;el.textContent=n})}
 var CART_SVG='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 7H6"/></svg>';
 var SHARE_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/></svg>';
 function shareText(p){return p.nom+" – "+fmt(p.prix)+" sur "+S.boutique}
+/* Image de l'article préparée à l'avance : le partage doit se lancer tout de suite après le clic */
+var SHFILES={};
+function shareFile(url,name){
+  if(!SHFILES[url]){SHFILES[url]=fetch(url).then(function(r){if(!r.ok)throw 0;return r.blob()}).then(function(b){
+    var t=b.type&&b.type.indexOf("image/")===0?b.type:"image/jpeg",ext=t.split("/")[1].replace("jpeg","jpg").replace(/[^a-z0-9]/g,"")||"jpg";
+    return new File([b],(slugify(name)||"article")+"."+ext,{type:t})}).catch(function(){return null})}
+  return SHFILES[url];
+}
+function shareNote(t){var m=$("shareMsg");if(!m)return;m.textContent=t;setTimeout(function(){if(m.textContent===t)m.textContent=""},4200)}
 async function shareProd(){
-  var p=curProd();if(!p)return;var url=prodUrl(S.slug,p.id);
-  if(navigator.share){try{await navigator.share({title:p.nom,text:shareText(p),url:url});return}catch(e){if(e&&e.name==="AbortError")return}}
-  window.open("https://wa.me/?text="+encodeURIComponent(shareText(p)+"\n"+url),"_blank","noopener");
+  var p=curProd();if(!p)return;var url=prodUrl(S.slug,p.id),txt=shareText(p),imgs=pImgs(p),iu=imgs[PMimg]||imgs[0];
+  /* 1) l'image de l'article, suivie du texte et du lien (légende) */
+  if(iu&&navigator.share&&navigator.canShare){
+    var f=await Promise.race([shareFile(iu,p.nom),new Promise(function(r){setTimeout(function(){r(null)},2500)})]);
+    if(f){
+      if(navigator.canShare({files:[f]})){
+        try{await navigator.share({files:[f],title:p.nom,text:txt+"\n"+url});return}
+        catch(e){if(e&&e.name==="AbortError")return}
+      }
+    }else shareNote("L’image n’a pas pu être jointe : le lien est partagé seul.");
+  }
+  /* 2) à défaut : le lien seul */
+  if(navigator.share){try{await navigator.share({title:p.nom,text:txt,url:url});return}catch(e){if(e&&e.name==="AbortError")return}}
+  window.open("https://wa.me/?text="+encodeURIComponent(txt+"\n"+url),"_blank","noopener");
 }
 async function copyLink(){
   var p=curProd();if(!p)return;var url=prodUrl(S.slug,p.id),m=$("shareMsg");if(!m)return;
@@ -378,6 +428,7 @@ function renderPM(){
   (p.detail?'<p class="note" style="margin:6px 0 0">'+esc(p.detail)+'</p>':'')+(p.description?'<p class="desc">'+esc(p.description)+'</p>':'')+vid+chips+act+
   '<div class="sharebox"><button type="button" class="btn alt" data-pg="share">Partager cet article</button><button type="button" class="btn alt" data-pg="copy">Copier le lien</button><span class="sharemsg" id="shareMsg" role="status"></span></div></div></div>';
   updBadges();
+  if(imgs[PMimg])shareFile(imgs[PMimg],p.nom);
 }
 $("pm").addEventListener("click",function(e){
   var pg=e.target.closest("[data-pg]");

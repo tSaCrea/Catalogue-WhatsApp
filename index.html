@@ -167,6 +167,8 @@ body.lock{overflow:hidden}
 .linkin{width:100%;font-size:.85rem;padding:8px 10px}
 @media (min-width:900px){.pg-main{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:32px;align-items:start}.pg-gallery{position:sticky;top:76px}}
 @media (max-width:419px){.topline{flex-wrap:wrap}.topline .brand{flex:1 1 0}.topline .search{order:3;flex:1 0 100%}}
+.geo{margin-top:12px}.geo .btn,#sendImg{width:100%;display:block}.geo .note a{color:var(--green);font-weight:600}
+#sendImg{margin-top:10px}#sendImg:disabled{opacity:.5;cursor:default}
 /* Grands écrans (ordinateur) : page plus large, plus de colonnes. Le téléphone ne change pas. */
 @media (min-width:900px){
 .wrap{max-width:1180px}
@@ -213,7 +215,9 @@ body.lock{overflow:hidden}
 <div id="lines"></div><div class="total"><span>Total</span><span id="total"></span></div>
 <label for="nom">Votre nom</label><input id="nom" autocomplete="name" placeholder="Ex : Awa Koné">
 <label for="adr">Quartier / adresse de livraison</label><textarea id="adr" rows="2" placeholder="Ex : Cocody Angré, près de la pharmacie"></textarea>
+<div class="geo"><button type="button" class="btn alt" id="geoBtn">📍 Partager ma position exacte</button><p class="note" id="geoMsg" role="status">Facilite la livraison. Votre position n’est envoyée qu’au commerçant, avec votre commande.</p></div>
 <a class="send" id="send" href="#" target="_blank" rel="noopener" aria-disabled="true">Envoyer ma commande sur WhatsApp</a>
+<button type="button" class="btn alt" id="sendImg" hidden>🖼️ Envoyer avec les photos des articles</button><p class="note" id="sendImgHint" hidden></p>
 <p class="note">Un message déjà rédigé s’ouvre dans WhatsApp. Vous n’avez plus qu’à l’envoyer.</p>
 </div></div>
 
@@ -324,15 +328,69 @@ $("lines").addEventListener("change",function(e){
   var k=t.getAttribute&&t.getAttribute("data-k");if(k){if(t.checked)SEL[k]=true;else delete SEL[k];syncSel()}
 });
 $("lines").addEventListener("click",function(e){if(e.target.closest("#delSel"))delSelected()});
+var POS=null;
+function imgLink(p){return p.photo_url&&/^https?:\/\//.test(p.photo_url)?p.photo_url:""}
+function mapUrl(){return "https://www.google.com/maps?q="+POS.lat.toFixed(6)+","+POS.lng.toFixed(6)}
+function renderGeo(){
+  var b=$("geoBtn"),m=$("geoMsg");
+  if(POS){b.textContent="✖ Retirer ma position";m.innerHTML="✅ Position enregistrée (précision ≈ "+Math.round(POS.acc)+" m). <a href=\""+mapUrl()+"\" target=\"_blank\" rel=\"noopener\">Voir sur la carte</a>"+(POS.acc>150?"<br>Précision faible : ajoutez aussi votre adresse.":"")}
+  else{b.textContent="📍 Partager ma position exacte";if(!m.dataset.err)m.textContent="Facilite la livraison. Votre position n’est envoyée qu’au commerçant, avec votre commande."}
+}
+function geoFail(t){var m=$("geoMsg");$("geoBtn").disabled=false;m.dataset.err="1";m.textContent=t;$("geoBtn").textContent="📍 Partager ma position exacte"}
+$("geoBtn").addEventListener("click",function(){
+  var m=$("geoMsg");delete m.dataset.err;
+  if(POS){POS=null;renderGeo();updateLink();return}
+  if(!navigator.geolocation){geoFail("Votre appareil ne permet pas de partager la position. Écrivez votre adresse.");return}
+  $("geoBtn").disabled=true;m.textContent="Recherche de votre position… Autorisez l’accès si votre téléphone le demande.";
+  navigator.geolocation.getCurrentPosition(function(r){
+    POS={lat:r.coords.latitude,lng:r.coords.longitude,acc:r.coords.accuracy||0};$("geoBtn").disabled=false;renderGeo();updateLink();
+  },function(e){
+    geoFail(e&&e.code===1?"Accès à la position refusé. Autorisez-le dans les réglages du navigateur, ou écrivez votre adresse.":e&&e.code===3?"La position n’a pas été trouvée à temps. Réessayez à l’extérieur, ou écrivez votre adresse.":"Position indisponible. Écrivez votre adresse.");
+  },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+});
+/* Image récapitulative de la commande (photos des articles), partageable vers WhatsApp */
+function canShareFiles(){try{return !!(navigator.share&&navigator.canShare&&navigator.canShare({files:[new File(["x"],"a.jpg",{type:"image/jpeg"})]}))}catch(e){return false}}
+function fitText(x,t,w){while(t.length>1&&x.measureText(t).width>w)t=t.slice(0,-2);return t}
+async function orderImage(){
+  var keys=Object.keys(cart).filter(function(k){return prod(k)&&cart[k]}),W=900,RH=150,PAD=26,HEAD=96,MAX=8,rows=keys.slice(0,MAX);
+  var H=HEAD+rows.length*RH+(keys.length>MAX?54:0)+110,c=document.createElement("canvas");c.width=W;c.height=H;var x=c.getContext("2d");
+  var cs=getComputedStyle(document.documentElement),green=cs.getPropertyValue("--green").trim()||"#1F7A4D",on=cs.getPropertyValue("--onGreen").trim()||"#fff";
+  x.fillStyle="#fff";x.fillRect(0,0,W,H);x.fillStyle=green;x.fillRect(0,0,W,HEAD-14);
+  x.fillStyle=on;x.font="bold 38px sans-serif";x.textBaseline="middle";x.fillText(fitText(x,"Commande – "+S.boutique,W-2*PAD),PAD,(HEAD-14)/2);
+  for(var i=0;i<rows.length;i++){
+    var k=rows[i],p=prod(k),y=HEAD+i*RH,u=p.photo_url,f=u?await shareFile(u,p.nom):null,bmp=null;
+    if(f){try{bmp=await createImageBitmap(f)}catch(e){}}
+    x.save();x.beginPath();x.roundRect?x.roundRect(PAD,y+10,120,120,16):x.rect(PAD,y+10,120,120);x.clip();
+    if(bmp){var sc=Math.max(120/bmp.width,120/bmp.height);x.drawImage(bmp,PAD+(120-bmp.width*sc)/2,y+10+(120-bmp.height*sc)/2,bmp.width*sc,bmp.height*sc)}
+    else{x.fillStyle="#eee";x.fillRect(PAD,y+10,120,120)}
+    x.restore();
+    var pr=fmt(cart[k]*p.prix);x.fillStyle="#12261C";x.font="bold 30px sans-serif";var pw=x.measureText(pr).width;x.fillText(pr,W-PAD-pw,y+70);
+    x.font="bold 30px sans-serif";x.fillText(fitText(x,p.nom,W-PAD-pw-2*PAD-150),PAD+140,y+52);
+    x.fillStyle="#5B6E62";x.font="26px sans-serif";x.fillText(cart[k]+" × "+fmt(p.prix)+lab(k),PAD+140,y+96);
+    x.strokeStyle="#DCE6DF";x.lineWidth=2;x.beginPath();x.moveTo(PAD,y+RH-1);x.lineTo(W-PAD,y+RH-1);x.stroke();
+  }
+  var y2=HEAD+rows.length*RH;if(keys.length>MAX){x.fillStyle="#5B6E62";x.font="26px sans-serif";x.fillText("+ "+(keys.length-MAX)+" autre(s) article(s)",PAD,y2+28);y2+=54}
+  x.fillStyle="#12261C";x.font="bold 40px sans-serif";x.fillText("Total",PAD,y2+58);var tt=fmt(totals().s);x.fillText(tt,W-PAD-x.measureText(tt).width,y2+58);
+  return await new Promise(function(r){c.toBlob(function(b){r(b?new File([b],"commande.jpg",{type:"image/jpeg"}):null)},"image/jpeg",.86)});
+}
+$("sendImg").addEventListener("click",async function(){
+  var b=this,t=b.textContent;b.disabled=true;b.textContent="Préparation de l’image…";
+  try{
+    var f=await orderImage(),d={text:message(),title:"Commande "+S.boutique};
+    if(f&&navigator.canShare({files:[f]}))d.files=[f];
+    await navigator.share(d);
+  }catch(e){if(!(e&&e.name==="AbortError"))window.open($("send").href,"_blank","noopener")}
+  b.textContent=t;updateLink();
+});
 function message(){
   var m="Bonjour "+S.boutique+", je souhaite commander :\n\n";
-  Object.keys(cart).forEach(function(k){var p=prod(k),q=cart[k];if(p&&q)m+="• "+q+" × "+p.nom+lab(k)+" = "+fmt(q*p.prix)+"\n"});
+  Object.keys(cart).forEach(function(k){var p=prod(k),q=cart[k];if(p&&q){m+="• "+q+" × "+p.nom+lab(k)+" = "+fmt(q*p.prix)+"\n";var il=imgLink(p);if(il)m+="   Photo : "+il+"\n"}});
   m+="\nTotal : "+fmt(totals().s)+"\n";
-  if(val("nom"))m+="Nom : "+val("nom")+"\n";if(val("adr"))m+="Livraison : "+val("adr")+"\n";
+  if(val("nom"))m+="Nom : "+val("nom")+"\n";if(val("adr"))m+="Livraison : "+val("adr")+"\n";if(POS)m+="Position GPS : "+mapUrl()+" (précision ≈ "+Math.round(POS.acc)+" m)\n";
   return m+"\nMerci !";
 }
 function updateLink(){
-  var ok=totals().n>0&&val("nom")&&val("adr"),a=$("send");
+  var ok=totals().n>0&&val("nom")&&(val("adr")||POS),a=$("send");$("sendImg").disabled=!ok;
   a.setAttribute("aria-disabled",ok?"false":"true");
   a.href=ok?"https://wa.me/"+String(S.whatsapp).replace(/\D/g,"")+"?text="+encodeURIComponent(message()):"#";
 }
@@ -374,7 +432,7 @@ function showProd(id){PM=id;var p=curProd();if(!p)return false;PMsize="";PMimg=0
 function hideProd(){$("pm").hidden=true;$("pmBody").innerHTML="";document.body.classList.remove("lock");if(S)document.title=S.boutique+" – Commandez sur WhatsApp"}
 function openProd(id){if(showProd(id))NAV.push(id)}
 function closeProd(){if(NAV.back())return;hideProd();NAV.reset()}
-function openCart(){CARTMSG="";renderSheet();$("sheet").classList.add("open")}
+function openCart(){CARTMSG="";renderSheet();renderGeo();if(canShareFiles()){$("sendImg").hidden=false;var h=$("sendImgHint");h.hidden=false;h.textContent="Choisissez WhatsApp, puis le contact de la boutique (+"+String(S.whatsapp).replace(/\D/g,"")+"). La photo de chaque article est jointe."}$("sheet").classList.add("open")}
 function updBadges(){var n=S?totals().n:0;document.querySelectorAll(".cc").forEach(function(el){el.hidden=!n;el.textContent=n})}
 var CART_SVG='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 7H6"/></svg>';
 var SHARE_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/></svg>';
@@ -444,7 +502,7 @@ async function loadShop(slug,pid){
   var c=await sb.from("catalogues").select("id,boutique,whatsapp,accroche,flash_info,couleur,logo_url,banniere_url,bannieres").eq("slug",slug).maybeSingle();
   if(!c.data){return info("Ce catalogue n’existe pas.")}
   var p=await sb.from("produits").select("*").eq("catalogue_id",c.data.id).order("id");
-  S=c.data;S.slug=slug;S.produits=p.data||[];cart={};$("q").value="";qs="";$("shop").hidden=false;$("cartbar").hidden=false;renderShop();if(pid)showProd(pid);
+  S=c.data;S.slug=slug;S.produits=p.data||[];cart={};POS=null;$("q").value="";qs="";$("shop").hidden=false;$("cartbar").hidden=false;renderShop();if(pid)showProd(pid);
 }
 function info(t){$("info").hidden=!t;$("info").textContent=t||""}
 
